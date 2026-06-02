@@ -15,7 +15,7 @@ final class SpeedTracker: NSObject, ObservableObject, CLLocationManagerDelegate 
     override init() {
         super.init()
         manager.delegate = self
-        manager.desiredAccuracy = kCLLocationAccuracyBest
+        manager.desiredAccuracy = kCLLocationAccuracyBestForNavigation
         manager.activityType = .fitness
         manager.requestWhenInUseAuthorization()
         manager.startUpdatingLocation()
@@ -34,16 +34,14 @@ final class SpeedTracker: NSObject, ObservableObject, CLLocationManagerDelegate 
 
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         Task { @MainActor in
-            guard let location = locations.last else { return }
-            let speed = max(location.speed, 0)
-            currentSpeed = speed >= 0 ? speed : 0
+            guard let location = locations.last, location.speed >= 0 else { return }
+            let mph = location.speed * 2.23694
+            currentSpeed = mph
 
             if isTracking {
-                totalSpeed += currentSpeed
-                speeds.append(currentSpeed)
-                if !speeds.isEmpty {
-                    averageSpeed = totalSpeed / Double(speeds.count)
-                }
+                totalSpeed += mph
+                speeds.append(mph)
+                averageSpeed = totalSpeed / Double(speeds.count)
             }
         }
     }

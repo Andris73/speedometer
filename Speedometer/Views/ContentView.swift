@@ -47,7 +47,7 @@ struct ContentView: View {
                     .font(.system(size: 80, weight: .thin, design: .monospaced))
                     .modifier(NumericContentTransition())
                     .animation(.default, value: tracker.averageSpeed)
-                Text("km/h")
+                Text("mph")
                     .font(.title3)
                     .foregroundStyle(.secondary)
             }
@@ -60,7 +60,7 @@ struct ContentView: View {
                     .font(.system(size: 80, weight: .thin, design: .monospaced))
                     .modifier(NumericContentTransition())
                     .animation(.default, value: tracker.currentSpeed)
-                Text("km/h")
+                Text("mph")
                     .font(.title3)
                     .foregroundStyle(.secondary)
             }
