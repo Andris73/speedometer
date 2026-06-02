@@ -45,7 +45,7 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
                 Text(String(format: "%.1f", tracker.averageSpeed))
                     .font(.system(size: 80, weight: .thin, design: .monospaced))
-                    .contentTransition(.numericText())
+                    .modifier(NumericContentTransition())
                     .animation(.default, value: tracker.averageSpeed)
                 Text("km/h")
                     .font(.title3)
@@ -58,7 +58,7 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
                 Text(String(format: "%.1f", tracker.currentSpeed))
                     .font(.system(size: 80, weight: .thin, design: .monospaced))
-                    .contentTransition(.numericText())
+                    .modifier(NumericContentTransition())
                     .animation(.default, value: tracker.currentSpeed)
                 Text("km/h")
                     .font(.title3)
@@ -85,6 +85,16 @@ struct ContentView: View {
             tracker.stopTrackingAverage()
         } else {
             tracker.startTrackingAverage()
+        }
+    }
+}
+
+struct NumericContentTransition: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 16, *) {
+            content.contentTransition(.numericText())
+        } else {
+            content
         }
     }
 }

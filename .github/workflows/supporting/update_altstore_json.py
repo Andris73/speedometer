@@ -9,7 +9,7 @@ from datetime import datetime
 bundle_id = "com.speedometer.app"
 minimum_ios_version = "15.0"
 json_file_name = ".github/workflows/supporting/altstore/apps.json"
-github_repo = "YOUR_USER/YOUR_REPO"  # Set this to your GitHub repo
+github_repo = "Andris73/speedometer"
 
 def fetch_latest_release(repo):
     api_url = f"https://api.github.com/repos/{repo}/releases"
