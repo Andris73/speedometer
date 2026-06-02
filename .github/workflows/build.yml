@@ -1,4 +1,4 @@
-name: Build and upload nightly ipa
+name: Build and release
 
 on: [push, workflow_dispatch]
 
@@ -15,19 +15,36 @@ jobs:
         run: |
           xcrun simctl list > /dev/null
           xcodebuild -downloadPlatform iOS
-      - name: Get commit SHA
-        id: commitinfo
-        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      - name: Get info
+        id: info
+        run: |
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "version=1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
       - name: Build
-        run: xcodebuild -scheme "Speedometer" -configuration Release archive -archivePath build/Speedometer.xcarchive -skipPackagePluginValidation CODE_SIGN_IDENTITY= CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+        run: |
+          xcodebuild -scheme "Speedometer" -configuration Release archive \
+            -archivePath build/Speedometer.xcarchive -skipPackagePluginValidation \
+            CODE_SIGN_IDENTITY= CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
+            MARKETING_VERSION=${{ steps.info.outputs.version }} \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }}
       - name: Package ipa
         run: |
           mkdir Payload
           cp -r build/Speedometer.xcarchive/Products/Applications/Speedometer.app Payload
-          zip -r Speedometer-iOS_nightly-${{ steps.commitinfo.outputs.sha_short }}.ipa Payload
-      - name: Upload artifacts
+          zip -r Speedometer-${{ steps.info.outputs.version }}.ipa Payload
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Speedometer-iOS_nightly-${{ steps.commitinfo.outputs.sha_short }}.ipa
-          path: Speedometer-iOS_nightly-${{ steps.commitinfo.outputs.sha_short }}.ipa
+          name: Speedometer-${{ steps.info.outputs.version }}.ipa
+          path: Speedometer-${{ steps.info.outputs.version }}.ipa
           if-no-files-found: error
+      - name: Create Release
+        if: github.ref_name == 'master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.info.outputs.version }}
+          name: v${{ steps.info.outputs.version }}
+          body: |
+            Automated release from commit ${{ steps.info.outputs.sha_short }}.
+          files: Speedometer-${{ steps.info.outputs.version }}.ipa
+          generate_release_notes: true
