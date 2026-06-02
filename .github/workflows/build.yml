@@ -1,0 +1,33 @@
+name: Build and upload nightly ipa
+
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "16.2"
+      - name: Install Xcode platforms
+        run: |
+          xcrun simctl list > /dev/null
+          xcodebuild -downloadPlatform iOS
+      - name: Get commit SHA
+        id: commitinfo
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      - name: Build
+        run: xcodebuild -scheme "Speedometer" -configuration Release archive -archivePath build/Speedometer.xcarchive -skipPackagePluginValidation CODE_SIGN_IDENTITY= CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+      - name: Package ipa
+        run: |
+          mkdir Payload
+          cp -r build/Speedometer.xcarchive/Products/Applications/Speedometer.app Payload
+          zip -r Speedometer-iOS_nightly-${{ steps.commitinfo.outputs.sha_short }}.ipa Payload
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Speedometer-iOS_nightly-${{ steps.commitinfo.outputs.sha_short }}.ipa
+          path: Speedometer-iOS_nightly-${{ steps.commitinfo.outputs.sha_short }}.ipa
+          if-no-files-found: error
