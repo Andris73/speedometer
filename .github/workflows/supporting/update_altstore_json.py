@@ -153,6 +153,8 @@ def update_json_file(json_file, repo):
 def main():
     try:
         update_json_file(json_file_name, github_repo)
+    except ValueError as e:
+        print(f"Skipping: {e}")
     except Exception as e:
         print(f"An error occurred: {e}")
         raise
