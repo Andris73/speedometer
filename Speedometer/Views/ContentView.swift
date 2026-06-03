@@ -7,7 +7,7 @@ struct ContentView: View {
         VStack(spacing: 40) {
             Spacer()
 
-            if tracker.currentSpeed < 0 {
+            if tracker.authorizationDenied {
                 Text("Location access denied")
                     .foregroundStyle(.red)
                     .font(.title3)
@@ -29,7 +29,7 @@ struct ContentView: View {
                     .clipShape(Capsule())
                     .padding(.horizontal, 60)
             }
-            .disabled(tracker.currentSpeed < 0)
+            .disabled(tracker.authorizationDenied)
 
             Spacer()
         }
