@@ -45,6 +45,7 @@ struct ContentView: View {
             }
             .padding(.horizontal, isLandscape ? 16 : 20)
             .padding(.vertical, isLandscape ? 6 : 12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .preferredColorScheme(preferredScheme)
         .onAppear { UIApplication.shared.isIdleTimerDisabled = true }
@@ -111,7 +112,7 @@ struct ContentView: View {
 
     private func landscapeSpeedPanels(geometry: GeometryProxy) -> some View {
         let panelWidth = (geometry.size.width - 16) / 2
-        let fontSize = max(48, min(96, panelWidth * 0.22))
+        let fontSize = max(48, min(180, panelWidth * 0.30))
 
         return HStack(spacing: 16) {
             speedPanel(
@@ -131,8 +132,8 @@ struct ContentView: View {
     }
 
     private func portraitSpeedPanels(geometry: GeometryProxy) -> some View {
-        let availableHeight = geometry.size.height - 160
-        let fontSize = max(40, min(80, availableHeight * 0.3))
+        let availableHeight = geometry.size.height
+        let fontSize = max(48, min(200, availableHeight * 0.40))
 
         return VStack(spacing: 4) {
             speedPanel(
@@ -159,7 +160,6 @@ struct ContentView: View {
             Text(String(format: "%.1f", value))
                 .font(.system(size: fontSize, weight: .thin, design: .monospaced))
                 .modifier(NumericContentTransition())
-                .minimumScaleFactor(0.4)
                 .lineLimit(1)
                 .animation(.default, value: value)
             Text(unitLabel)
