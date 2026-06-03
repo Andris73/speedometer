@@ -170,46 +170,72 @@ struct ContentView: View {
     }
 
     private func controlButton(geometry: GeometryProxy) -> some View {
-        Group {
+        let buttonHeight: CGFloat = isLandscape ? 40 : 48
+        return Group {
             switch tracker.trackingState {
             case .idle:
                 Button(action: { tracker.handleButtonTap() }) {
                     Text("Start")
                         .font(.title3.bold())
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, isLandscape ? 10 : 14)
-                        .background(Color.green)
                         .foregroundColor(.white)
-                        .clipShape(Capsule())
+                        .frame(maxWidth: .infinity)
+                        .frame(height: buttonHeight)
                 }
+                .background(Color.green)
+                .clipShape(Capsule())
 
-            case .tracking, .paused:
+            case .tracking:
                 HStack(spacing: 0) {
                     Button(action: { tracker.handleButtonTap() }) {
-                        HStack {
-                            Spacer()
-                            Text(tracker.trackingState == .tracking ? "Pause" : "Resume")
-                                .font(.title3.bold())
-                            Spacer()
-                        }
-                        .padding(.vertical, isLandscape ? 10 : 14)
-                        .foregroundColor(.white)
+                        Text("Pause")
+                            .font(.title3.bold())
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: buttonHeight)
                     }
+                    .background(Color.orange)
+
                     Rectangle()
                         .fill(.white.opacity(0.3))
                         .frame(width: 1)
+
                     Button(action: { tracker.handleStopTap() }) {
-                        HStack {
-                            Spacer()
-                            Text("Stop")
-                                .font(.title3.bold())
-                            Spacer()
-                        }
-                        .padding(.vertical, isLandscape ? 10 : 14)
-                        .foregroundColor(.white)
+                        Text("Stop")
+                            .font(.title3.bold())
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: buttonHeight)
                     }
+                    .background(Color.red)
                 }
-                .background(tracker.trackingState == .tracking ? Color.orange : Color.green)
+                .fixedSize(horizontal: false, vertical: true)
+                .clipShape(Capsule())
+
+            case .paused:
+                HStack(spacing: 0) {
+                    Button(action: { tracker.handleButtonTap() }) {
+                        Text("Resume")
+                            .font(.title3.bold())
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: buttonHeight)
+                    }
+                    .background(Color.green)
+
+                    Rectangle()
+                        .fill(.white.opacity(0.3))
+                        .frame(width: 1)
+
+                    Button(action: { tracker.handleStopTap() }) {
+                        Text("Stop")
+                            .font(.title3.bold())
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: buttonHeight)
+                    }
+                    .background(Color.red)
+                }
+                .fixedSize(horizontal: false, vertical: true)
                 .clipShape(Capsule())
             }
         }
