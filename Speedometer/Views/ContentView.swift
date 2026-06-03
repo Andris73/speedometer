@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var tracker = SpeedTracker()
     @AppStorage("useMetric") private var useMetric = false
+    @AppStorage("colorSchemePreference") private var colorSchemePreference = 0
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     private var unitFactor: Double { useMetric ? 1.60934 : 1 }
@@ -11,10 +12,19 @@ struct ContentView: View {
     private var displayAverage: Double { tracker.averageSpeed * unitFactor }
     private var isLandscape: Bool { verticalSizeClass == .compact }
 
+    private var preferredScheme: ColorScheme? {
+        switch colorSchemePreference {
+        case 1: return .light
+        case 2: return .dark
+        default: return nil
+        }
+    }
+
     var body: some View {
         GeometryReader { geometry in
-            let speedFontSize = max(40, min(80, geometry.size.height * 0.3))
-            VStack(spacing: isLandscape ? 8 : 24) {
+            VStack(spacing: isLandscape ? 6 : 12) {
+                topBar
+
                 if tracker.authorizationDenied {
                     Spacer()
                     Text("Location access denied")
@@ -22,78 +32,213 @@ struct ContentView: View {
                         .font(.title3)
                     Spacer()
                 } else {
-                    Spacer(minLength: 0)
-
-                    speedDisplay(fontSize: speedFontSize)
-
-                    if !isLandscape {
-                        Spacer(minLength: 0)
+                    if isLandscape {
+                        landscapeSpeedPanels(geometry: geometry)
+                    } else {
+                        portraitSpeedPanels(geometry: geometry)
                     }
 
-                    statusLabel
+                    controlButton(geometry: geometry)
 
-                    Button(action: toggleTracking) {
-                        Text(tracker.isTracking ? "Stop" : "Start")
-                            .font(.title3.bold())
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, isLandscape ? 10 : 16)
-                            .background(tracker.isTracking ? Color.red : Color.green)
-                            .foregroundColor(.white)
-                            .clipShape(Capsule())
-                            .padding(.horizontal, isLandscape ? 40 : 60)
-                    }
-                    .disabled(tracker.authorizationDenied)
-
-                    Spacer(minLength: 0)
+                    distanceRow
                 }
             }
-            .padding(.horizontal)
-            .padding(.vertical, isLandscape ? 4 : 16)
+            .padding(.horizontal, isLandscape ? 16 : 20)
+            .padding(.vertical, isLandscape ? 6 : 12)
         }
+        .preferredColorScheme(preferredScheme)
+        .onAppear { UIApplication.shared.isIdleTimerDisabled = true }
+        .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
     }
 
-    private func speedDisplay(fontSize: CGFloat) -> some View {
-        VStack(spacing: isLandscape ? 0 : 4) {
-            Text(tracker.isTracking ? "AVERAGE" : "CURRENT")
-                .font(.caption)
+    private var topBar: some View {
+        HStack {
+            gpsDot
+            Spacer()
+            themeButton
+            unitToggle
+        }
+        .font(.callout)
+    }
+
+    private var gpsDot: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(gpsColor)
+                .frame(width: 10, height: 10)
+            Text(gpsLabel)
+                .font(.caption2)
                 .foregroundStyle(.secondary)
-            Text(String(format: "%.1f", tracker.isTracking ? displayAverage : displaySpeed))
-                .font(.system(size: fontSize, weight: .thin, design: .monospaced))
-                .modifier(NumericContentTransition())
-                .minimumScaleFactor(0.5)
-                .lineLimit(1)
-                .animation(.default, value: tracker.isTracking ? displayAverage : displaySpeed)
-            unitButton
         }
     }
 
-    private var unitButton: some View {
+    private var gpsColor: Color {
+        switch tracker.gpsStatus {
+        case .locked:    return .green
+        case .searching: return .yellow
+        case .error:     return .red
+        }
+    }
+
+    private var gpsLabel: String {
+        switch tracker.gpsStatus {
+        case .locked:    return "Locked"
+        case .searching: return "Searching"
+        case .error:     return "No GPS"
+        }
+    }
+
+    private var themeButton: some View {
+        Button(action: {
+            colorSchemePreference = (colorSchemePreference + 1) % 3
+        }) {
+            Image(systemName: colorSchemePreference == 2 ? "moon.fill" : "sun.max.fill")
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var unitToggle: some View {
         Button(action: { useMetric.toggle() }) {
             Text(unitLabel)
-                .font(isLandscape ? .callout : .title3)
+                .font(.callout.bold())
                 .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(.secondary.opacity(0.15))
+                .clipShape(Capsule())
         }
     }
 
-    @ViewBuilder
-    private var statusLabel: some View {
-        if tracker.isTracking {
-            Label("Tracking average", systemImage: "dot.radiowaves.left.and.right")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        } else {
-            Text("Press Start to track")
-                .font(.callout)
-                .foregroundStyle(.secondary)
+    private func landscapeSpeedPanels(geometry: GeometryProxy) -> some View {
+        let panelWidth = (geometry.size.width - 16) / 2
+        let fontSize = max(48, min(96, panelWidth * 0.22))
+
+        return HStack(spacing: 16) {
+            speedPanel(
+                label: "CURRENT",
+                value: displaySpeed,
+                fontSize: fontSize,
+                prominent: true
+            )
+            speedPanel(
+                label: "AVERAGE",
+                value: displayAverage,
+                fontSize: fontSize * 0.75,
+                prominent: tracker.trackingState != .idle
+            )
         }
+        .frame(maxHeight: .infinity)
     }
 
-    private func toggleTracking() {
-        if tracker.isTracking {
-            tracker.stopTrackingAverage()
-        } else {
-            tracker.startTrackingAverage()
+    private func portraitSpeedPanels(geometry: GeometryProxy) -> some View {
+        let availableHeight = geometry.size.height - 160
+        let fontSize = max(40, min(80, availableHeight * 0.3))
+
+        return VStack(spacing: 4) {
+            speedPanel(
+                label: "CURRENT",
+                value: displaySpeed,
+                fontSize: fontSize,
+                prominent: true
+            )
+            speedPanel(
+                label: "AVERAGE",
+                value: displayAverage,
+                fontSize: fontSize * 0.65,
+                prominent: tracker.trackingState != .idle
+            )
         }
+        .frame(maxHeight: .infinity)
+    }
+
+    private func speedPanel(label: String, value: Double, fontSize: CGFloat, prominent: Bool) -> some View {
+        VStack(spacing: isLandscape ? 0 : 2) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(String(format: "%.1f", value))
+                .font(.system(size: fontSize, weight: .thin, design: .monospaced))
+                .modifier(NumericContentTransition())
+                .minimumScaleFactor(0.4)
+                .lineLimit(1)
+                .animation(.default, value: value)
+            Text(unitLabel)
+                .font(isLandscape ? .callout : .subheadline)
+                .foregroundStyle(.tertiary)
+        }
+        .opacity(prominent ? 1 : 0.4)
+    }
+
+    private func controlButton(geometry: GeometryProxy) -> some View {
+        Group {
+            switch tracker.trackingState {
+            case .idle:
+                Button(action: { tracker.handleButtonTap() }) {
+                    Text("Start")
+                        .font(.title3.bold())
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, isLandscape ? 10 : 14)
+                        .background(Color.green)
+                        .foregroundColor(.white)
+                        .clipShape(Capsule())
+                }
+
+            case .tracking, .paused:
+                HStack(spacing: 0) {
+                    Button(action: { tracker.handleButtonTap() }) {
+                        HStack {
+                            Spacer()
+                            Text(tracker.trackingState == .tracking ? "Pause" : "Resume")
+                                .font(.title3.bold())
+                            Spacer()
+                        }
+                        .padding(.vertical, isLandscape ? 10 : 14)
+                        .foregroundColor(.white)
+                    }
+                    Rectangle()
+                        .fill(.white.opacity(0.3))
+                        .frame(width: 1)
+                    Button(action: { tracker.handleStopTap() }) {
+                        HStack {
+                            Spacer()
+                            Text("Stop")
+                                .font(.title3.bold())
+                            Spacer()
+                        }
+                        .padding(.vertical, isLandscape ? 10 : 14)
+                        .foregroundColor(.white)
+                    }
+                }
+                .background(tracker.trackingState == .tracking ? Color.orange : Color.green)
+                .clipShape(Capsule())
+            }
+        }
+        .disabled(tracker.authorizationDenied)
+        .padding(.horizontal, isLandscape ? 0 : 20)
+    }
+
+    private var distanceRow: some View {
+        HStack(spacing: 4) {
+            Text("Trip:")
+                .foregroundStyle(.secondary)
+            Text(String(format: "%.2f", tracker.totalTripDistance * unitFactor))
+                .font(.callout.monospacedDigit())
+                .foregroundStyle(.primary)
+            Text(unitLabel)
+                .foregroundStyle(.tertiary)
+
+            Text(" • ")
+                .foregroundStyle(.quaternary)
+
+            Text("Session:")
+                .foregroundStyle(.secondary)
+            Text(String(format: "%.2f", tracker.sessionDistance * unitFactor))
+                .font(.callout.monospacedDigit())
+                .foregroundStyle(.primary)
+            Text(unitLabel)
+                .foregroundStyle(.tertiary)
+        }
+        .font(.caption)
     }
 }
 
