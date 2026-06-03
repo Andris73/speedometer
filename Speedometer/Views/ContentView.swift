@@ -2,6 +2,12 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var tracker = SpeedTracker()
+    @AppStorage("useMetric") private var useMetric = false
+
+    private var unitFactor: Double { useMetric ? 1.60934 : 1 }
+    private var unitLabel: String { useMetric ? "km/h" : "mph" }
+    private var displaySpeed: Double { tracker.currentSpeed * unitFactor }
+    private var displayAverage: Double { tracker.averageSpeed * unitFactor }
 
     var body: some View {
         VStack(spacing: 40) {
@@ -43,27 +49,31 @@ struct ContentView: View {
                 Text("AVERAGE")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text(String(format: "%.1f", tracker.averageSpeed))
+                Text(String(format: "%.1f", displayAverage))
                     .font(.system(size: 80, weight: .thin, design: .monospaced))
                     .modifier(NumericContentTransition())
-                    .animation(.default, value: tracker.averageSpeed)
-                Text("mph")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
+                    .animation(.default, value: displayAverage)
+                unitButton
             }
         } else {
             VStack(spacing: 4) {
                 Text("CURRENT")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text(String(format: "%.1f", tracker.currentSpeed))
+                Text(String(format: "%.1f", displaySpeed))
                     .font(.system(size: 80, weight: .thin, design: .monospaced))
                     .modifier(NumericContentTransition())
-                    .animation(.default, value: tracker.currentSpeed)
-                Text("mph")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
+                    .animation(.default, value: displaySpeed)
+                unitButton
             }
+        }
+    }
+
+    private var unitButton: some View {
+        Button(action: { useMetric.toggle() }) {
+            Text(unitLabel)
+                .font(.title3)
+                .foregroundStyle(.secondary)
         }
     }
 
