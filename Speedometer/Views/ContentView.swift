@@ -22,8 +22,10 @@ struct ContentView: View {
 
     var body: some View {
         GeometryReader { geometry in
+            let sa = geometry.safeAreaInsets
             VStack(spacing: isLandscape ? 6 : 12) {
                 topBar
+                    .padding(.top, sa.top + 4)
 
                 if tracker.authorizationDenied {
                     Spacer()
@@ -41,12 +43,13 @@ struct ContentView: View {
                     controlButton(geometry: geometry)
 
                     distanceRow
+                        .padding(.bottom, sa.bottom + 4)
                 }
             }
             .padding(.horizontal, isLandscape ? 16 : 20)
-            .padding(.vertical, isLandscape ? 6 : 12)
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
+        .ignoresSafeArea()
         .preferredColorScheme(preferredScheme)
         .onAppear { UIApplication.shared.isIdleTimerDisabled = true }
         .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
@@ -112,7 +115,7 @@ struct ContentView: View {
 
     private func landscapeSpeedPanels(geometry: GeometryProxy) -> some View {
         let panelWidth = (geometry.size.width - 16) / 2
-        let fontSize = max(48, min(100, panelWidth * 0.25))
+        let fontSize = max(48, min(130, panelWidth * 0.28))
 
         return HStack(spacing: 16) {
             speedPanel(
@@ -132,7 +135,7 @@ struct ContentView: View {
     }
 
     private func portraitSpeedPanels(geometry: GeometryProxy) -> some View {
-        let fontSize = max(48, min(100, geometry.size.height * 0.30))
+        let fontSize = max(64, min(150, geometry.size.height * 0.30))
 
         return VStack(spacing: 4) {
             speedPanel(
@@ -159,7 +162,7 @@ struct ContentView: View {
             Text(String(format: "%.1f", value))
                 .font(.system(size: fontSize, weight: .thin, design: .monospaced))
                 .modifier(NumericContentTransition())
-                .minimumScaleFactor(0.6)
+                .minimumScaleFactor(0.5)
                 .lineLimit(1)
                 .animation(.default, value: value)
             Text(unitLabel)
