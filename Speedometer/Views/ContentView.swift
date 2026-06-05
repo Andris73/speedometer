@@ -7,9 +7,8 @@ struct ContentView: View {
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     private var unitFactor: Double { useMetric ? 1.60934 : 1 }
-    private var unitLabel: String { useMetric ? "km/h" : "mph" }
-    private var displaySpeed: Double { tracker.currentSpeed * unitFactor }
-    private var displayAverage: Double { tracker.averageSpeed * unitFactor }
+    private var speedUnitLabel: String { useMetric ? "KPH" : "MPH" }
+    private var distanceUnitLabel: String { useMetric ? "km" : "mi" }
     private var isLandscape: Bool { verticalSizeClass == .compact }
 
     private var preferredScheme: ColorScheme? {
@@ -20,10 +19,28 @@ struct ContentView: View {
         }
     }
 
+    /// Whole-number speed in the selected unit, capped at 3 characters (Req 13 & 14).
+    private func speedString(_ mph: Double) -> String {
+        let value = (mph * unitFactor).rounded()
+        let clamped = min(999, max(0, Int(value)))
+        return String(clamped)
+    }
+
+    private var displayDistance: Double { tracker.sessionDistance * unitFactor }
+
+    /// Elapsed session duration formatted as HH:MM:SS (Req 10).
+    private func elapsedString(_ seconds: TimeInterval) -> String {
+        let total = max(0, Int(seconds))
+        return String(format: "%02d:%02d:%02d", total / 3600, (total % 3600) / 60, total % 60)
+    }
+
+    /// Results stay at full opacity while running and after a completed session (Req 9).
+    private var resultsProminent: Bool { tracker.isRunning || tracker.hasResults }
+
     var body: some View {
         GeometryReader { geometry in
             let sa = geometry.safeAreaInsets
-            VStack(spacing: isLandscape ? 6 : 12) {
+            VStack(spacing: isLandscape ? 8 : 16) {
                 topBar
                     .padding(.top, sa.top + 4)
 
@@ -35,18 +52,16 @@ struct ContentView: View {
                     Spacer()
                 } else {
                     if isLandscape {
-                        landscapeSpeedPanels(geometry: geometry)
+                        landscapeContent(geometry: geometry)
                     } else {
-                        portraitSpeedPanels(geometry: geometry)
+                        portraitContent(geometry: geometry)
                     }
 
-                    controlButton(geometry: geometry)
-
-                    distanceRow
-                        .padding(.bottom, sa.bottom + 4)
+                    controlButton
+                        .padding(.bottom, sa.bottom + 8)
                 }
             }
-            .padding(.horizontal, isLandscape ? 16 : 20)
+            .padding(.horizontal, isLandscape ? 24 : 20)
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
         .ignoresSafeArea()
@@ -55,24 +70,16 @@ struct ContentView: View {
         .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
     }
 
+    // MARK: - Top bar
+
     private var topBar: some View {
         HStack {
-            gpsDot
+            Image(systemName: "antenna.radiowaves.left.and.right")
+                .font(.title3)
+                .foregroundStyle(gpsColor)
+                .accessibilityLabel(gpsAccessibilityLabel)
             Spacer()
             themeButton
-            unitToggle
-        }
-        .font(.callout)
-    }
-
-    private var gpsDot: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(gpsColor)
-                .frame(width: 10, height: 10)
-            Text(gpsLabel)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
         }
     }
 
@@ -84,200 +91,124 @@ struct ContentView: View {
         }
     }
 
-    private var gpsLabel: String {
+    private var gpsAccessibilityLabel: String {
         switch tracker.gpsStatus {
-        case .locked:    return "Locked"
-        case .searching: return "Searching"
+        case .locked:    return "GPS locked"
+        case .searching: return "GPS searching"
         case .error:     return "No GPS"
         }
     }
 
     private var themeButton: some View {
-        Button(action: {
+        Button {
             colorSchemePreference = (colorSchemePreference + 1) % 3
-        }) {
+        } label: {
             Image(systemName: colorSchemePreference == 2 ? "moon.fill" : "sun.max.fill")
+                .font(.title3)
                 .foregroundStyle(.secondary)
         }
     }
 
-    private var unitToggle: some View {
-        Button(action: { useMetric.toggle() }) {
-            Text(unitLabel)
-                .font(.callout.bold())
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(.secondary.opacity(0.15))
-                .clipShape(Capsule())
-        }
-    }
+    // MARK: - Layouts
 
-    private func landscapeSpeedPanels(geometry: GeometryProxy) -> some View {
-        let panelWidth = (geometry.size.width - 16) / 2
-        let fontSize = max(48, min(130, panelWidth * 0.28))
-
-        return HStack(spacing: 16) {
-            speedPanel(
+    /// Landscape: live speed and average side by side, numbers maximised (Req 2).
+    private func landscapeContent(geometry: GeometryProxy) -> some View {
+        let currentFont = geometry.size.height * 0.42
+        let averageFont = geometry.size.height * 0.30
+        return HStack(alignment: .center, spacing: 24) {
+            speedColumn(
                 label: "CURRENT",
-                value: displaySpeed,
-                fontSize: fontSize,
+                value: speedString(tracker.currentSpeed),
+                fontSize: currentFont,
                 prominent: true
             )
-            speedPanel(
-                label: "AVERAGE",
-                value: displayAverage,
-                fontSize: fontSize * 0.75,
-                prominent: tracker.trackingState != .idle
-            )
+            averageColumn(fontSize: averageFont)
         }
-        .frame(maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func portraitSpeedPanels(geometry: GeometryProxy) -> some View {
-        let fontSize = max(64, min(150, geometry.size.height * 0.30))
-
-        return VStack(spacing: 4) {
-            speedPanel(
+    /// Portrait: live speed on top, average stacked below (Req 3).
+    private func portraitContent(geometry: GeometryProxy) -> some View {
+        let currentFont = geometry.size.height * 0.20
+        let averageFont = geometry.size.height * 0.13
+        return VStack(spacing: 24) {
+            speedColumn(
                 label: "CURRENT",
-                value: displaySpeed,
-                fontSize: fontSize,
+                value: speedString(tracker.currentSpeed),
+                fontSize: currentFont,
                 prominent: true
             )
-            speedPanel(
-                label: "AVERAGE",
-                value: displayAverage,
-                fontSize: fontSize * 0.65,
-                prominent: tracker.trackingState != .idle
-            )
+            averageColumn(fontSize: averageFont)
         }
-        .frame(maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func speedPanel(label: String, value: Double, fontSize: CGFloat, prominent: Bool) -> some View {
-        VStack(spacing: isLandscape ? 0 : 2) {
+    private func averageColumn(fontSize: CGFloat) -> some View {
+        VStack(spacing: isLandscape ? 2 : 8) {
+            speedColumn(
+                label: "AVERAGE",
+                value: speedString(tracker.averageSpeed),
+                fontSize: fontSize,
+                prominent: resultsProminent
+            )
+            elapsedAndDistance
+                .opacity(resultsProminent ? 1 : 0.4)
+        }
+    }
+
+    private func speedColumn(label: String, value: String, fontSize: CGFloat, prominent: Bool) -> some View {
+        VStack(spacing: isLandscape ? 0 : 4) {
             Text(label)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Text(String(format: "%.1f", value))
-                .font(.system(size: fontSize, weight: .thin, design: .monospaced))
-                .modifier(NumericContentTransition())
-                .minimumScaleFactor(0.5)
+            Text(value)
+                .font(.system(size: fontSize, weight: .medium, design: .monospaced))
                 .lineLimit(1)
-                .animation(.default, value: value)
-            Text(unitLabel)
-                .font(isLandscape ? .callout : .subheadline)
-                .foregroundStyle(.tertiary)
+                .minimumScaleFactor(0.4)
+            unitButton
         }
         .opacity(prominent ? 1 : 0.4)
     }
 
-    private func controlButton(geometry: GeometryProxy) -> some View {
-        let buttonHeight: CGFloat = isLandscape ? 40 : 48
-        return Group {
-            switch tracker.trackingState {
-            case .idle:
-                Button(action: { tracker.handleButtonTap() }) {
-                    Text("Start")
-                        .font(.title3.bold())
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: buttonHeight)
-                }
-                .background(Color.green)
-                .clipShape(Capsule())
-
-            case .tracking:
-                HStack(spacing: 0) {
-                    Button(action: { tracker.handleButtonTap() }) {
-                        Text("Pause")
-                            .font(.title3.bold())
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: buttonHeight)
-                    }
-                    .background(Color.orange)
-
-                    Rectangle()
-                        .fill(.white.opacity(0.3))
-                        .frame(width: 1)
-
-                    Button(action: { tracker.handleStopTap() }) {
-                        Text("Stop")
-                            .font(.title3.bold())
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: buttonHeight)
-                    }
-                    .background(Color.red)
-                }
-                .fixedSize(horizontal: false, vertical: true)
-                .clipShape(Capsule())
-
-            case .paused:
-                HStack(spacing: 0) {
-                    Button(action: { tracker.handleButtonTap() }) {
-                        Text("Resume")
-                            .font(.title3.bold())
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: buttonHeight)
-                    }
-                    .background(Color.green)
-
-                    Rectangle()
-                        .fill(.white.opacity(0.3))
-                        .frame(width: 1)
-
-                    Button(action: { tracker.handleStopTap() }) {
-                        Text("Stop")
-                            .font(.title3.bold())
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: buttonHeight)
-                    }
-                    .background(Color.red)
-                }
-                .fixedSize(horizontal: false, vertical: true)
-                .clipShape(Capsule())
-            }
+    /// Tappable units label that toggles MPH <-> KPH and live-converts (Req 5 & 6).
+    private var unitButton: some View {
+        Button {
+            useMetric.toggle()
+        } label: {
+            Text(speedUnitLabel)
+                .font(isLandscape ? .callout : .headline)
+                .foregroundStyle(.secondary)
         }
-        .layoutPriority(1)
+        .buttonStyle(.plain)
+    }
+
+    /// Elapsed time (HH:MM:SS) and session distance below the average (Req 10 & 11).
+    private var elapsedAndDistance: some View {
+        VStack(spacing: 2) {
+            Text(elapsedString(tracker.elapsedTime))
+                .font(.title3.monospacedDigit())
+                .foregroundStyle(.primary)
+            Text("\(String(format: "%.1f", displayDistance)) \(distanceUnitLabel)")
+                .font(.callout.monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: - Control
+
+    /// Single Start/Stop toggle (Req 7).
+    private var controlButton: some View {
+        Button {
+            tracker.handleButtonTap()
+        } label: {
+            Text(tracker.isRunning ? "Stop" : "Start")
+                .font(.title2.bold())
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: isLandscape ? 44 : 56)
+        }
+        .background(tracker.isRunning ? Color.red : Color.green)
+        .clipShape(Capsule())
         .disabled(tracker.authorizationDenied)
-        .padding(.horizontal, isLandscape ? 0 : 20)
-    }
-
-    private var distanceRow: some View {
-        HStack(spacing: 4) {
-            Text("Trip:")
-                .foregroundStyle(.secondary)
-            Text(String(format: "%.2f", tracker.totalTripDistance * unitFactor))
-                .font(.callout.monospacedDigit())
-                .foregroundStyle(.primary)
-            Text(unitLabel)
-                .foregroundStyle(.tertiary)
-
-            Text(" • ")
-                .foregroundStyle(.quaternary)
-
-            Text("Session:")
-                .foregroundStyle(.secondary)
-            Text(String(format: "%.2f", tracker.sessionDistance * unitFactor))
-                .font(.callout.monospacedDigit())
-                .foregroundStyle(.primary)
-            Text(unitLabel)
-                .foregroundStyle(.tertiary)
-        }
-        .font(.caption)
-    }
-}
-
-struct NumericContentTransition: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(iOS 16, *) {
-            content.contentTransition(.numericText())
-        } else {
-            content
-        }
     }
 }
