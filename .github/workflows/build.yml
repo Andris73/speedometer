@@ -1,4 +1,4 @@
-name: Build and release
+name: Build and publish
 
 on: [push, workflow_dispatch]
 
@@ -7,6 +7,8 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
@@ -19,32 +21,57 @@ jobs:
         id: info
         run: |
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-          echo "version=1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
+          echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+          echo "build=$(git rev-list --count HEAD)" >> $GITHUB_OUTPUT
       - name: Build
         run: |
           xcodebuild -scheme "Speedometer" -configuration Release archive \
             -archivePath build/Speedometer.xcarchive -skipPackagePluginValidation \
             CODE_SIGN_IDENTITY= CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
-            MARKETING_VERSION=${{ steps.info.outputs.version }} \
-            CURRENT_PROJECT_VERSION=${{ github.run_number }}
+            CURRENT_PROJECT_VERSION=${{ steps.info.outputs.build }}
       - name: Package ipa
+        id: package
         run: |
-          mkdir Payload
-          cp -r build/Speedometer.xcarchive/Products/Applications/Speedometer.app Payload
-          zip -r Speedometer-${{ steps.info.outputs.version }}.ipa Payload
+          mkdir -p Payload
+          cp -r build/Speedometer.xcarchive/Products/Applications/Speedometer.app Payload/
+          zip -r Speedometer.ipa Payload
+          cp Speedometer.ipa /tmp/Speedometer.ipa
+          APP="build/Speedometer.xcarchive/Products/Applications/Speedometer.app/Info.plist"
+          echo "version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP")" >> $GITHUB_OUTPUT
+          echo "build=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP")" >> $GITHUB_OUTPUT
+          echo "size=$(stat -f%z Speedometer.ipa)" >> $GITHUB_OUTPUT
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Speedometer-${{ steps.info.outputs.version }}.ipa
-          path: Speedometer-${{ steps.info.outputs.version }}.ipa
+          name: Speedometer-${{ steps.package.outputs.version }}.ipa
+          path: /tmp/Speedometer.ipa
           if-no-files-found: error
-      - name: Create Release
+      - name: Publish to combined AltStore source
         if: github.ref_name == 'master'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.info.outputs.version }}
-          name: v${{ steps.info.outputs.version }}
-          body: |
-            Automated release from commit ${{ steps.info.outputs.sha_short }}.
-          files: Speedometer-${{ steps.info.outputs.version }}.ipa
-          generate_release_notes: true
+        env:
+          APP_ID: speedometer
+          VERSION: "${{ steps.package.outputs.version }}"
+          BUILD: "${{ steps.package.outputs.build }}"
+          SIZE: "${{ steps.package.outputs.size }}"
+          SHA_SHORT: "${{ steps.info.outputs.sha_short }}"
+          DATE: "${{ steps.info.outputs.date }}"
+          ALTSTORE_TOKEN: "${{ secrets.ALTSTORE_TOKEN }}"
+        run: |
+          for attempt in 1 2 3; do
+            rm -rf /tmp/altstore
+            git clone --depth 1 "https://x-access-token:${ALTSTORE_TOKEN}@github.com/Andris73/altstore.git" /tmp/altstore
+            mkdir -p /tmp/altstore/ipas
+            cp /tmp/Speedometer.ipa /tmp/altstore/ipas/speedometer.ipa
+            if ( cd /tmp/altstore \
+                 && python3 tools/update_app.py \
+                 && git config user.name "github-actions" \
+                 && git config user.email "github-actions@github.com" \
+                 && git add apps.json ipas/speedometer.ipa \
+                 && { git commit -m "Speedometer ${VERSION} (build ${BUILD})" || exit 0; } \
+                 && git push ); then
+              echo "Published Speedometer ${VERSION} (build ${BUILD})"
+              break
+            fi
+            echo "Publish attempt ${attempt} failed (possible push race); retrying…"
+            sleep $((RANDOM % 5 + 3))
+          done
