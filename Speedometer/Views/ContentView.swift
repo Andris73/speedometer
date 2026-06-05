@@ -5,6 +5,7 @@ struct ContentView: View {
     @AppStorage("useMetric") private var useMetric = false
     @AppStorage("colorSchemePreference") private var colorSchemePreference = 0
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.colorScheme) private var systemColorScheme
 
     private var unitFactor: Double { useMetric ? 1.60934 : 1 }
     private var speedUnitLabel: String { useMetric ? "KPH" : "MPH" }
@@ -16,6 +17,15 @@ struct ContentView: View {
         case 1: return .light
         case 2: return .dark
         default: return nil
+        }
+    }
+
+    /// The scheme actually shown: a manual override if set, otherwise the system scheme.
+    private var isDarkMode: Bool {
+        switch colorSchemePreference {
+        case 1: return false
+        case 2: return true
+        default: return systemColorScheme == .dark
         }
     }
 
@@ -111,18 +121,22 @@ struct ContentView: View {
 
     // MARK: - Layouts
 
-    /// Landscape: live speed and average side by side, numbers maximised (Req 2).
+    /// Landscape: split the screen into two halves and centre the live speed in
+    /// the left half and the average in the right half (Req 2).
     private func landscapeContent(geometry: GeometryProxy) -> some View {
-        let currentFont = geometry.size.height * 0.42
-        let averageFont = geometry.size.height * 0.30
-        return HStack(alignment: .center, spacing: 24) {
+        let currentFont = geometry.size.height * 0.50
+        let averageFont = geometry.size.height * 0.36
+        return HStack(spacing: 0) {
             speedColumn(
                 label: "CURRENT",
                 value: speedString(tracker.currentSpeed),
                 fontSize: currentFont,
                 prominent: true
             )
+            .frame(maxWidth: .infinity)
+
             averageColumn(fontSize: averageFont)
+                .frame(maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -196,6 +210,15 @@ struct ContentView: View {
 
     // MARK: - Control
 
+    /// Start is green in light mode but a low-glare dark grey in dark mode to
+    /// avoid distraction at night; Stop stays red.
+    private var controlButtonColor: Color {
+        if tracker.isRunning {
+            return .red
+        }
+        return isDarkMode ? Color(white: 0.22) : Color.green
+    }
+
     /// Single Start/Stop toggle (Req 7).
     private var controlButton: some View {
         Button {
@@ -207,7 +230,7 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: isLandscape ? 44 : 56)
         }
-        .background(tracker.isRunning ? Color.red : Color.green)
+        .background(controlButtonColor)
         .clipShape(Capsule())
         .disabled(tracker.authorizationDenied)
     }
