@@ -10,6 +10,7 @@
 		A100001001 /* SpeedometerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200001001 /* SpeedometerApp.swift */; };
 		A100001101 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200001101 /* ContentView.swift */; };
 		A100001201 /* SpeedTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200001201 /* SpeedTracker.swift */; };
+		A100001401 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A200001401 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -74,6 +75,7 @@
 			buildConfigurationList = A600001001 /* Build configuration list for PBXNativeTarget "Speedometer" */;
 			buildPhases = (
 				A500001001 /* Sources */,
+				A500001101 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -111,6 +113,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A500001101 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A100001401 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		A500001001 /* Sources */ = {
