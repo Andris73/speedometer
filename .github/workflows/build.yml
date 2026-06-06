@@ -60,13 +60,14 @@ jobs:
           for attempt in 1 2 3; do
             rm -rf /tmp/altstore
             git clone --depth 1 "https://x-access-token:${ALTSTORE_TOKEN}@github.com/Andris73/altstore.git" /tmp/altstore
-            mkdir -p /tmp/altstore/ipas
+            mkdir -p /tmp/altstore/ipas /tmp/altstore/icons
             cp /tmp/Speedometer.ipa /tmp/altstore/ipas/speedometer.ipa
+            cp "$GITHUB_WORKSPACE/icon.png" /tmp/altstore/icons/speedometer.png
             if ( cd /tmp/altstore \
                  && python3 tools/update_app.py \
                  && git config user.name "github-actions" \
                  && git config user.email "github-actions@github.com" \
-                 && git add apps.json ipas/speedometer.ipa \
+                 && git add apps.json ipas/speedometer.ipa icons/speedometer.png \
                  && { git commit -m "Speedometer ${VERSION} (build ${BUILD})" || exit 0; } \
                  && git push ); then
               echo "Published Speedometer ${VERSION} (build ${BUILD})"
