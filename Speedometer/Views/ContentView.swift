@@ -87,10 +87,12 @@ struct ContentView: View {
             Image(systemName: "antenna.radiowaves.left.and.right")
                 .font(.title3)
                 .foregroundStyle(gpsColor)
+                .padding(8)
                 .accessibilityLabel(gpsAccessibilityLabel)
             Spacer()
             themeButton
         }
+        .padding(.horizontal, 8)
     }
 
     private var gpsColor: Color {
@@ -116,6 +118,8 @@ struct ContentView: View {
             Image(systemName: colorSchemePreference == 2 ? "moon.fill" : "sun.max.fill")
                 .font(.title3)
                 .foregroundStyle(.secondary)
+                .padding(8)
+                .contentShape(Rectangle())
         }
     }
 
