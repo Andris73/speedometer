@@ -48,33 +48,39 @@ struct ContentView: View {
     private var resultsProminent: Bool { tracker.isRunning || tracker.hasResults }
 
     var body: some View {
-        GeometryReader { geometry in
-            let sa = geometry.safeAreaInsets
-            VStack(spacing: isLandscape ? 8 : 16) {
-                topBar
-                    .padding(.top, sa.top + 4)
+        ZStack {
+            // Full-bleed background reaches the physical edges...
+            Color(.systemBackground)
+                .ignoresSafeArea()
 
-                if tracker.authorizationDenied {
-                    Spacer()
-                    Text("Location access denied")
-                        .foregroundStyle(.red)
-                        .font(.title3)
-                    Spacer()
-                } else {
-                    if isLandscape {
-                        landscapeContent(geometry: geometry)
+            // ...while the content respects the safe area natively, keeping the
+            // top bar clear of the status bar / notch and the control clear of
+            // the home indicator.
+            GeometryReader { geometry in
+                VStack(spacing: isLandscape ? 8 : 16) {
+                    topBar
+
+                    if tracker.authorizationDenied {
+                        Spacer()
+                        Text("Location access denied")
+                            .foregroundStyle(.red)
+                            .font(.title3)
+                        Spacer()
                     } else {
-                        portraitContent(geometry: geometry)
-                    }
+                        if isLandscape {
+                            landscapeContent(geometry: geometry)
+                        } else {
+                            portraitContent(geometry: geometry)
+                        }
 
-                    controlButton
-                        .padding(.bottom, sa.bottom + 8)
+                        controlButton
+                    }
                 }
+                .frame(width: geometry.size.width, height: geometry.size.height)
             }
             .padding(.horizontal, isLandscape ? 24 : 20)
-            .frame(width: geometry.size.width, height: geometry.size.height)
+            .padding(.vertical, 8)
         }
-        .ignoresSafeArea()
         .preferredColorScheme(preferredScheme)
         .onAppear { UIApplication.shared.isIdleTimerDisabled = true }
         .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
