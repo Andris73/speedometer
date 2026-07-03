@@ -86,7 +86,16 @@ struct ContentView: View {
         .preferredColorScheme(preferredScheme)
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true
-            pip.bind(speed: tracker.$currentSpeed, average: tracker.$averageSpeed)
+            pip.onSetPlaying = { playing in
+                if playing != tracker.isRunning {
+                    tracker.handleButtonTap()
+                }
+            }
+            pip.bind(
+                speed: tracker.$currentSpeed,
+                average: tracker.$averageSpeed,
+                isRunning: tracker.$isRunning
+            )
         }
         .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
         .onChange(of: useMetric) { _ in pip.refresh() }

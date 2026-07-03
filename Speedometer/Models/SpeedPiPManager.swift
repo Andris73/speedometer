@@ -10,6 +10,10 @@ import UIKit
 final class SpeedPiPManager: NSObject, ObservableObject {
     @Published var isActive = false
 
+    /// Called on the main thread when the user taps play/pause in the PiP
+    /// window, with the desired "playing" state.
+    var onSetPlaying: ((Bool) -> Void)?
+
     private let displayLayer = AVSampleBufferDisplayLayer()
     private var controller: AVPictureInPictureController?
     private var possibleObservation: NSKeyValueObservation?
@@ -17,6 +21,7 @@ final class SpeedPiPManager: NSObject, ObservableObject {
     private var lastFrame: (speed: String, average: String, unit: String) = ("0", "0", "MPH")
     private var rawSpeed: Double = 0
     private var rawAverage: Double = 0
+    private var isSessionRunning = false
     private var cancellables: Set<AnyCancellable> = []
 
     var isSupported: Bool {
@@ -50,8 +55,13 @@ final class SpeedPiPManager: NSObject, ObservableObject {
     }
 
     /// Subscribes to the tracker's publishers so PiP frames keep rendering in
-    /// the background, independent of SwiftUI view updates.
-    func bind(speed: Published<Double>.Publisher, average: Published<Double>.Publisher) {
+    /// the background, independent of SwiftUI view updates. The running state
+    /// drives the PiP window's play/pause button icon.
+    func bind(
+        speed: Published<Double>.Publisher,
+        average: Published<Double>.Publisher,
+        isRunning: Published<Bool>.Publisher
+    ) {
         guard cancellables.isEmpty else { return }
         speed.combineLatest(average)
             .receive(on: DispatchQueue.main)
@@ -59,6 +69,14 @@ final class SpeedPiPManager: NSObject, ObservableObject {
                 self?.rawSpeed = speed
                 self?.rawAverage = average
                 self?.refresh()
+            }
+            .store(in: &cancellables)
+        isRunning
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] running in
+                guard let self, running != self.isSessionRunning else { return }
+                self.isSessionRunning = running
+                self.controller?.invalidatePlaybackState()
             }
             .store(in: &cancellables)
     }
@@ -247,7 +265,11 @@ extension SpeedPiPManager: AVPictureInPictureControllerDelegate {
 // MARK: - AVPictureInPictureSampleBufferPlaybackDelegate
 
 extension SpeedPiPManager: AVPictureInPictureSampleBufferPlaybackDelegate {
-    func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, setPlaying playing: Bool) {}
+    func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, setPlaying playing: Bool) {
+        DispatchQueue.main.async { [weak self] in
+            self?.onSetPlaying?(playing)
+        }
+    }
 
     func pictureInPictureControllerTimeRangeForPlayback(
         _ pictureInPictureController: AVPictureInPictureController
@@ -260,7 +282,7 @@ extension SpeedPiPManager: AVPictureInPictureSampleBufferPlaybackDelegate {
     func pictureInPictureControllerIsPlaybackPaused(
         _ pictureInPictureController: AVPictureInPictureController
     ) -> Bool {
-        false
+        !isSessionRunning
     }
 
     func pictureInPictureController(
