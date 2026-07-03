@@ -31,6 +31,15 @@ final class SpeedTracker: NSObject, ObservableObject, CLLocationManagerDelegate 
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyBest
         manager.activityType = .fitness
+        // Keeps GPS flowing while the app is backgrounded with PiP up.
+        // Guarded: setting this without the "location" background mode is a fatal error.
+        let modes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String] ?? []
+        if modes.contains("location") {
+            manager.allowsBackgroundLocationUpdates = true
+            manager.showsBackgroundLocationIndicator = true
+            // Auto-pause while stationary suspends the app in background and kills PiP
+            manager.pausesLocationUpdatesAutomatically = false
+        }
     }
 
     deinit {

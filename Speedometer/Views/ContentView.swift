@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var tracker = SpeedTracker()
+    @StateObject private var pip = SpeedPiPManager()
     @AppStorage("useMetric") private var useMetric = false
     @AppStorage("colorSchemePreference") private var colorSchemePreference = 0
     @Environment(\.verticalSizeClass) private var verticalSizeClass
@@ -81,9 +82,14 @@ struct ContentView: View {
             .padding(.horizontal, isLandscape ? 24 : 20)
             .padding(.vertical, 8)
         }
+        .background(PiPHostView(manager: pip).frame(width: 1, height: 1), alignment: .topLeading)
         .preferredColorScheme(preferredScheme)
-        .onAppear { UIApplication.shared.isIdleTimerDisabled = true }
+        .onAppear {
+            UIApplication.shared.isIdleTimerDisabled = true
+            pip.bind(speed: tracker.$currentSpeed, average: tracker.$averageSpeed)
+        }
         .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
+        .onChange(of: useMetric) { _ in pip.refresh() }
     }
 
     // MARK: - Top bar
@@ -96,9 +102,26 @@ struct ContentView: View {
                 .padding(8)
                 .accessibilityLabel(gpsAccessibilityLabel)
             Spacer()
+            if pip.isSupported {
+                pipButton
+            }
             themeButton
         }
         .padding(.horizontal, 8)
+    }
+
+    private var pipButton: some View {
+        Button {
+            pip.refresh()
+            pip.toggle()
+        } label: {
+            Image(systemName: pip.isActive ? "pip.exit" : "pip.enter")
+                .font(.title3)
+                .foregroundStyle(pip.isActive ? Color.accentColor : Color.secondary)
+                .padding(8)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel(pip.isActive ? "Exit Picture in Picture" : "Enter Picture in Picture")
     }
 
     private var gpsColor: Color {

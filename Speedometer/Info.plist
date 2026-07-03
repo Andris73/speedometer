@@ -22,6 +22,11 @@
     <true/>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Speedometer needs your location to measure your current speed.</string>
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>audio</string>
+        <string>location</string>
+    </array>
     <key>UIApplicationSceneManifest</key>
     <dict>
         <key>UIApplicationSupportsMultipleScenes</key>
