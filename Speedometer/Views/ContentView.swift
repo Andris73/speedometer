@@ -38,6 +38,12 @@ struct ContentView: View {
     }
 
     private var displayDistance: Double { tracker.sessionDistance * unitFactor }
+    private var speedLimitText: String { tracker.speedLimitMph.map(speedString) ?? "—" }
+
+    private var speedLimitAccessibilityLabel: String {
+        guard let limit = tracker.speedLimitMph else { return "Speed limit unavailable" }
+        return "Speed limit \(speedString(limit)) \(speedUnitLabel)"
+    }
 
     /// Elapsed session duration formatted as HH:MM:SS (Req 10).
     private func elapsedString(_ seconds: TimeInterval) -> String {
@@ -113,11 +119,14 @@ struct ContentView: View {
 
     private var topBar: some View {
         HStack {
-            Image(systemName: "antenna.radiowaves.left.and.right")
-                .font(.title3)
-                .foregroundStyle(gpsColor)
-                .padding(8)
-                .accessibilityLabel(gpsAccessibilityLabel)
+            HStack(spacing: 4) {
+                Image(systemName: "antenna.radiowaves.left.and.right")
+                    .font(.title3)
+                    .foregroundStyle(gpsColor)
+                    .padding(8)
+                    .accessibilityLabel(gpsAccessibilityLabel)
+                speedLimitRoundel
+            }
             Spacer()
             if pip.isSupported {
                 pipButton
@@ -125,6 +134,22 @@ struct ContentView: View {
             themeButton
         }
         .padding(.horizontal, 8)
+    }
+
+    private var speedLimitRoundel: some View {
+        ZStack {
+            Circle()
+                .stroke(tracker.speedLimitMph == nil ? Color.secondary.opacity(0.45) : Color.red, lineWidth: 2.5)
+            Text(speedLimitText)
+                .font(.caption.bold().monospacedDigit())
+                .foregroundStyle(tracker.speedLimitMph == nil ? Color.secondary : Color.primary)
+                .minimumScaleFactor(0.6)
+                .lineLimit(1)
+                .padding(.horizontal, 3)
+        }
+        .frame(width: 32, height: 32)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(speedLimitAccessibilityLabel)
     }
 
     private var pipButton: some View {
