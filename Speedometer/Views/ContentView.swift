@@ -48,6 +48,13 @@ struct ContentView: View {
     /// Results stay at full opacity while running and after a completed session (Req 9).
     private var resultsProminent: Bool { tracker.isRunning || tracker.hasResults }
 
+    /// True when the given mph speed exceeds the current road's legal limit.
+    /// Compares rounded values so a displayed "30" never shows red at a 30 limit.
+    private func isOverLimit(_ mph: Double) -> Bool {
+        guard let limit = tracker.speedLimitMph else { return false }
+        return Int(mph.rounded()) > Int(limit.rounded())
+    }
+
     var body: some View {
         ZStack {
             // Full-bleed background reaches the physical edges...
@@ -94,7 +101,8 @@ struct ContentView: View {
             pip.bind(
                 speed: tracker.$currentSpeed,
                 average: tracker.$averageSpeed,
-                isRunning: tracker.$isRunning
+                isRunning: tracker.$isRunning,
+                speedLimit: tracker.$speedLimitMph
             )
         }
         .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
@@ -173,7 +181,8 @@ struct ContentView: View {
                 label: "CURRENT",
                 value: speedString(tracker.currentSpeed),
                 fontSize: currentFont,
-                prominent: true
+                prominent: true,
+                overLimit: isOverLimit(tracker.currentSpeed)
             )
             .frame(maxWidth: .infinity)
 
@@ -192,7 +201,8 @@ struct ContentView: View {
                 label: "CURRENT",
                 value: speedString(tracker.currentSpeed),
                 fontSize: currentFont,
-                prominent: true
+                prominent: true,
+                overLimit: isOverLimit(tracker.currentSpeed)
             )
             averageColumn(fontSize: averageFont)
         }
@@ -205,20 +215,22 @@ struct ContentView: View {
                 label: "AVERAGE",
                 value: speedString(tracker.averageSpeed),
                 fontSize: fontSize,
-                prominent: resultsProminent
+                prominent: resultsProminent,
+                overLimit: tracker.isRunning && isOverLimit(tracker.averageSpeed)
             )
             elapsedAndDistance
                 .opacity(resultsProminent ? 1 : 0.4)
         }
     }
 
-    private func speedColumn(label: String, value: String, fontSize: CGFloat, prominent: Bool) -> some View {
+    private func speedColumn(label: String, value: String, fontSize: CGFloat, prominent: Bool, overLimit: Bool = false) -> some View {
         VStack(spacing: isLandscape ? 0 : 4) {
             Text(label)
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Text(value)
                 .font(.system(size: fontSize, weight: .medium, design: .monospaced))
+                .foregroundStyle(overLimit ? Color.red : Color.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.4)
             unitButton

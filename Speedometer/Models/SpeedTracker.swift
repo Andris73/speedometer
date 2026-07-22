@@ -1,3 +1,4 @@
+import Combine
 import CoreLocation
 import Foundation
 
@@ -21,7 +22,10 @@ final class SpeedTracker: NSObject, ObservableObject, CLLocationManagerDelegate 
     @Published var hasResults = false
     @Published var gpsStatus: GPSStatus = .searching
     @Published var authorizationDenied = false
+    /// Legal limit of the current road in mph; nil when unknown.
+    @Published var speedLimitMph: Double?
 
+    private let speedLimits = SpeedLimitProvider()
     private var lastLocation: CLLocation?
     private var sessionStartDate: Date?
     private var timer: Timer?
@@ -40,6 +44,7 @@ final class SpeedTracker: NSObject, ObservableObject, CLLocationManagerDelegate 
             // Auto-pause while stationary suspends the app in background and kills PiP
             manager.pausesLocationUpdatesAutomatically = false
         }
+        speedLimits.$speedLimitMph.assign(to: &$speedLimitMph)
     }
 
     deinit {
@@ -153,6 +158,7 @@ final class SpeedTracker: NSObject, ObservableObject, CLLocationManagerDelegate 
             lastLocation = location
             gpsStatus = .locked
             currentSpeed = mph
+            speedLimits.update(location: location)
 
             if isRunning, let start = sessionStartDate {
                 elapsedTime = Date().timeIntervalSince(start)

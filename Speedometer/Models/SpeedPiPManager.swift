@@ -18,9 +18,18 @@ final class SpeedPiPManager: NSObject, ObservableObject {
     private var controller: AVPictureInPictureController?
     private var possibleObservation: NSKeyValueObservation?
     private let renderSize = CGSize(width: 480, height: 270)
-    private var lastFrame: (speed: String, average: String, unit: String) = ("0", "0", "MPH")
+    private struct Frame {
+        var speed = "0"
+        var average = "0"
+        var unit = "MPH"
+        var speedOver = false
+        var averageOver = false
+    }
+
+    private var lastFrame = Frame()
     private var rawSpeed: Double = 0
     private var rawAverage: Double = 0
+    private var rawLimit: Double?
     private var isSessionRunning = false
     private var isDarkMode = true
     private var cancellables: Set<AnyCancellable> = []
@@ -61,14 +70,16 @@ final class SpeedPiPManager: NSObject, ObservableObject {
     func bind(
         speed: Published<Double>.Publisher,
         average: Published<Double>.Publisher,
-        isRunning: Published<Bool>.Publisher
+        isRunning: Published<Bool>.Publisher,
+        speedLimit: Published<Double?>.Publisher
     ) {
         guard cancellables.isEmpty else { return }
-        speed.combineLatest(average)
+        speed.combineLatest(average, speedLimit)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] speed, average in
+            .sink { [weak self] speed, average, limit in
                 self?.rawSpeed = speed
                 self?.rawAverage = average
+                self?.rawLimit = limit
                 self?.refresh()
             }
             .store(in: &cancellables)
@@ -78,6 +89,7 @@ final class SpeedPiPManager: NSObject, ObservableObject {
                 guard let self, running != self.isSessionRunning else { return }
                 self.isSessionRunning = running
                 self.controller?.invalidatePlaybackState()
+                self.refresh()
             }
             .store(in: &cancellables)
     }
@@ -102,11 +114,12 @@ final class SpeedPiPManager: NSObject, ObservableObject {
     func refresh() {
         let metric = UserDefaults.standard.bool(forKey: "useMetric")
         let factor = metric ? 1.60934 : 1.0
-        let unit = metric ? "KPH" : "MPH"
-        lastFrame = (
-            speedString(rawSpeed * factor),
-            speedString(rawAverage * factor),
-            unit
+        lastFrame = Frame(
+            speed: speedString(rawSpeed * factor),
+            average: speedString(rawAverage * factor),
+            unit: metric ? "KPH" : "MPH",
+            speedOver: isOverLimit(rawSpeed),
+            averageOver: isSessionRunning && isOverLimit(rawAverage)
         )
         if isActive {
             renderFrame()
@@ -115,6 +128,12 @@ final class SpeedPiPManager: NSObject, ObservableObject {
 
     private func speedString(_ value: Double) -> String {
         String(min(999, max(0, Int(value.rounded()))))
+    }
+
+    /// Rounded comparison so a displayed "30" never shows red at a 30 limit.
+    private func isOverLimit(_ mph: Double) -> Bool {
+        guard let limit = rawLimit else { return false }
+        return Int(mph.rounded()) > Int(limit.rounded())
     }
 
     private func start(_ pip: AVPictureInPictureController) {
@@ -160,7 +179,7 @@ final class SpeedPiPManager: NSObject, ObservableObject {
             var nextY = drawCentered(
                 frame.speed,
                 font: .monospacedDigitSystemFont(ofSize: 128, weight: .semibold),
-                color: foreground, midX: midX, top: 18
+                color: frame.speedOver ? .systemRed : foreground, midX: midX, top: 18
             )
             nextY = drawCentered(
                 frame.unit,
@@ -170,7 +189,8 @@ final class SpeedPiPManager: NSObject, ObservableObject {
             drawCentered(
                 "AVG \(frame.average) \(frame.unit)",
                 font: .monospacedDigitSystemFont(ofSize: 24, weight: .regular),
-                color: foreground.withAlphaComponent(0.45), midX: midX, top: nextY + 8
+                color: frame.averageOver ? UIColor.systemRed.withAlphaComponent(0.8) : foreground.withAlphaComponent(0.45),
+                midX: midX, top: nextY + 8
             )
         }
         guard let cgImage = image.cgImage else { return nil }

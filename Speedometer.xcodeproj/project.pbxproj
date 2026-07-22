@@ -11,6 +11,7 @@
 		A100001101 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200001101 /* ContentView.swift */; };
 		A100001201 /* SpeedTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200001201 /* SpeedTracker.swift */; };
 		A100001301 /* SpeedPiPManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200001601 /* SpeedPiPManager.swift */; };
+		A100001501 /* SpeedLimitProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200001701 /* SpeedLimitProvider.swift */; };
 		A100001401 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A200001401 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -22,6 +23,7 @@
 		A200001401 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A200001501 /* Speedometer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Speedometer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A200001601 /* SpeedPiPManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedPiPManager.swift; sourceTree = "<group>"; };
+		A200001701 /* SpeedLimitProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedLimitProvider.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -58,6 +60,7 @@
 			children = (
 				A200001201 /* SpeedTracker.swift */,
 				A200001601 /* SpeedPiPManager.swift */,
+				A200001701 /* SpeedLimitProvider.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -137,6 +140,7 @@
 				A100001101 /* ContentView.swift in Sources */,
 				A100001201 /* SpeedTracker.swift in Sources */,
 				A100001301 /* SpeedPiPManager.swift in Sources */,
+				A100001501 /* SpeedLimitProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -156,7 +160,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2.1;
+				MARKETING_VERSION = 1.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.speedometer.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
@@ -177,7 +181,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2.1;
+				MARKETING_VERSION = 1.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.speedometer.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
