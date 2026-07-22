@@ -22,6 +22,7 @@ final class SpeedPiPManager: NSObject, ObservableObject {
     private var rawSpeed: Double = 0
     private var rawAverage: Double = 0
     private var isSessionRunning = false
+    private var isDarkMode = true
     private var cancellables: Set<AnyCancellable> = []
 
     var isSupported: Bool {
@@ -90,6 +91,14 @@ final class SpeedPiPManager: NSObject, ObservableObject {
         }
     }
 
+    /// Mirrors the app's effective appearance (manual override or system) in
+    /// the PiP frame. Driven by the host view's trait collection.
+    func setDarkMode(_ dark: Bool) {
+        guard dark != isDarkMode else { return }
+        isDarkMode = dark
+        renderFrame()
+    }
+
     func refresh() {
         let metric = UserDefaults.standard.bool(forKey: "useMetric")
         let factor = metric ? 1.60934 : 1.0
@@ -142,24 +151,26 @@ final class SpeedPiPManager: NSObject, ObservableObject {
         let frame = lastFrame
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
+        let background: UIColor = isDarkMode ? .black : .white
+        let foreground: UIColor = isDarkMode ? .white : .black
         let image = UIGraphicsImageRenderer(size: renderSize, format: format).image { ctx in
-            UIColor.black.setFill()
+            background.setFill()
             ctx.fill(CGRect(origin: .zero, size: renderSize))
             let midX = renderSize.width / 2
             var nextY = drawCentered(
                 frame.speed,
                 font: .monospacedDigitSystemFont(ofSize: 128, weight: .semibold),
-                color: .white, midX: midX, top: 18
+                color: foreground, midX: midX, top: 18
             )
             nextY = drawCentered(
                 frame.unit,
                 font: .systemFont(ofSize: 30, weight: .medium),
-                color: UIColor.white.withAlphaComponent(0.6), midX: midX, top: nextY - 2
+                color: foreground.withAlphaComponent(0.6), midX: midX, top: nextY - 2
             )
             drawCentered(
                 "AVG \(frame.average) \(frame.unit)",
                 font: .monospacedDigitSystemFont(ofSize: 24, weight: .regular),
-                color: UIColor.white.withAlphaComponent(0.45), midX: midX, top: nextY + 8
+                color: foreground.withAlphaComponent(0.45), midX: midX, top: nextY + 8
             )
         }
         guard let cgImage = image.cgImage else { return nil }
@@ -303,20 +314,43 @@ extension SpeedPiPManager: AVPictureInPictureSampleBufferPlaybackDelegate {
 
 // MARK: - SwiftUI host
 
-/// Invisible host that anchors the sample buffer layer in the window hierarchy.
+/// Invisible host that anchors the sample buffer layer in the window hierarchy
+/// and reports the effective appearance (preferredColorScheme override included,
+/// since that sets the window's userInterfaceStyle).
+final class PiPHostUIView: UIView {
+    var onStyleChange: ((Bool) -> Void)?
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil {
+            onStyleChange?(traitCollection.userInterfaceStyle == .dark)
+        }
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if traitCollection.userInterfaceStyle != previousTraitCollection?.userInterfaceStyle {
+            onStyleChange?(traitCollection.userInterfaceStyle == .dark)
+        }
+    }
+}
+
 struct PiPHostView: UIViewRepresentable {
     let manager: SpeedPiPManager
 
-    func makeUIView(context: Context) -> UIView {
-        let view = UIView()
+    func makeUIView(context: Context) -> PiPHostUIView {
+        let view = PiPHostUIView()
         // Near-zero alpha rather than 0/hidden: some iOS versions refuse to
         // start PiP from a fully invisible layer.
         view.alpha = 0.011
         view.clipsToBounds = true
         view.isUserInteractionEnabled = false
+        view.onStyleChange = { [weak manager] dark in
+            manager?.setDarkMode(dark)
+        }
         manager.attach(to: view)
         return view
     }
 
-    func updateUIView(_ uiView: UIView, context: Context) {}
+    func updateUIView(_ uiView: PiPHostUIView, context: Context) {}
 }
